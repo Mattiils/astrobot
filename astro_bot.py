@@ -62,7 +62,13 @@ def choose_room(rooms: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def latest_message(token: str, room_id: str) -> dict[str, Any] | None:
-    data = request_json("GET", f"{WEBEX}/messages", headers=webex_headers(token), params={"roomId": room_id, "max": 1})
+    # Webex bots can read group-space messages only when they are mentioned.
+    data = request_json(
+        "GET",
+        f"{WEBEX}/messages",
+        headers=webex_headers(token),
+        params={"roomId": room_id, "max": 1, "mentionedPeople": "me"},
+    )
     items = data.get("items", []) if isinstance(data, dict) else []
     return items[0] if items else None
 
@@ -182,9 +188,12 @@ def monitor_room(token: str, bot_email: str, room_id: str, weather_key: str, nas
                 is_own_message = message.get("personEmail", "").lower() == bot_email.lower()
                 if message_id and message_id not in processed_ids and not is_own_message:
                     processed_ids.add(message_id)
-                    if text.startswith("/"):
+                    # In a group space Webex requires users to @mention the bot;
+                    # accept the command portion after that mention.
+                    command_start = text.find("/")
+                    if command_start >= 0:
                         try:
-                            answer = process_command(text, weather_key, nasa_key)
+                            answer = process_command(text[command_start:], weather_key, nasa_key)
                             if answer:
                                 send_message(token, room_id, answer)
                         except ApiError as exc:
