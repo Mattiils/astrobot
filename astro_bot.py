@@ -29,6 +29,9 @@ def request_json(method: str, url: str, **kwargs: Any) -> dict[str, Any] | list[
     """Make an HTTP request and turn network, status, and JSON errors into one safe error."""
     try:
         response = requests.request(method, url, timeout=TIMEOUT, **kwargs)
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After", "60")
+            raise ApiError(f"Rate limited by the service. Retrying after {retry_after} seconds.")
         response.raise_for_status()
         return response.json()
     except requests.Timeout as exc:
@@ -201,7 +204,8 @@ def monitor_room(token: str, bot_email: str, room_id: str, weather_key: str, nas
             time.sleep(poll_seconds)
         except ApiError as exc:
             print(f"Polling error: {exc}")
-            time.sleep(poll_seconds)
+            # Avoid repeated calls while an API has temporarily rate-limited us.
+            time.sleep(60 if "Rate limited" in str(exc) else poll_seconds)
 
 
 def main() -> None:
