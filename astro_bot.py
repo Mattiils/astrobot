@@ -1,4 +1,4 @@
-"""AstroBot - Webex bot for weather, ISS position, and NASA APOD."""
+"""AstroBot - Webex bot for weather, ISS position, and stargazing data."""
 import os
 import time
 from datetime import datetime, timezone
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 WEBEX = "https://webexapis.com/v1"
 OPENWEATHER = "https://api.openweathermap.org"
 ISS_URL = "http://api.open-notify.org/iss-now.json"
-NASA_APOD = "https://api.nasa.gov/planetary/apod"
+OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT = 15
 
 
@@ -155,26 +155,40 @@ def handle_iss(weather_key: str) -> str:
             f"Coordinates: {lat}, {lon}\nNearest location: {place}\n\n{format_weather(place, weather)}")
 
 
-def handle_apod(nasa_key: str) -> str:
-    data = request_json("GET", NASA_APOD, params={"api_key": nasa_key})
+def handle_sky(argument: str, weather_key: str) -> str:
+    """Extension feature: sunrise, sunset and moon data for observation planning."""
+    if not argument:
+        return "Usage: /sky city name  (example: /sky Hatfield)"
+    location = geocode_city(argument, weather_key)
+    data = request_json(
+        "GET", OPEN_METEO,
+        params={
+            "latitude": location["lat"], "longitude": location["lon"],
+            "daily": "sunrise,sunset,moonrise,moonset,moon_phase",
+            "timezone": "auto", "forecast_days": 1,
+        },
+    )
     if not isinstance(data, dict):
-        raise ApiError("NASA APOD returned an unexpected response.")
-    return (f"Astronomy Picture of the Day\nTitle: {data.get('title', 'Unknown')}\n"
-            f"Date: {data.get('date', 'Unknown')}\n{data.get('explanation', 'No explanation available.')}\n"
-            f"More: {data.get('url', 'N/A')}")
+        raise ApiError("Astronomy service returned an unexpected response.")
+    daily = data.get("daily", {})
+    value = lambda field: daily.get(field, ["N/A"])[0]
+    place = ", ".join(part for part in [location.get("name"), location.get("country")] if part)
+    return (f"Sky guide for {place}\nSunrise: {value('sunrise')}\nSunset: {value('sunset')}\n"
+            f"Moonrise: {value('moonrise')}\nMoonset: {value('moonset')}\n"
+            f"Moon phase value: {value('moon_phase')}\nUse this with /weather to plan observing.")
 
 
-def process_command(text: str, weather_key: str, nasa_key: str) -> str | None:
+def process_command(text: str, weather_key: str, _nasa_key: str) -> str | None:
     command, _, argument = text.strip().partition(" ")
     command = command.lower()
     if command == "/weather":
         return handle_weather(argument.strip(), weather_key)
     if command == "/iss":
         return handle_iss(weather_key)
-    if command == "/apod":
-        return handle_apod(nasa_key)
+    if command == "/sky":
+        return handle_sky(argument.strip(), weather_key)
     if command == "/help":
-        return "Commands: /weather city name, /iss, /apod"
+        return "Commands: /weather city name, /iss, /sky city name"
     return "Unknown command. Use /help."
 
 

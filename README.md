@@ -1,12 +1,12 @@
 # AstroBot API Investigation
 
 ## Project summary
-AstroBot is a Python Webex bot for the Astronomy Club. It polls one selected Webex room every five seconds, ignores duplicate and bot messages, and responds to `/weather city`, `/iss`, `/apod`, and `/help`. It uses JSON over HTTP and keeps API secrets in a local `.env` file.
+AstroBot is a Python Webex bot for the Astronomy Club. It polls one selected Webex room every five seconds, ignores duplicate and bot messages, and responds to `/weather city`, `/iss`, `/sky city`, and `/help`. It uses JSON over HTTP and keeps API secrets in a local `.env` file.
 
 ## Run instructions
 1. Create and activate a virtual environment.
 2. Run `pip install -r requirements.txt`.
-3. Copy `.env.example` to `.env` and add your own Webex, OpenWeather and NASA keys.
+3. Copy `.env.example` to `.env` and add your own Webex and OpenWeather keys.
 4. Run `python astro_bot.py`, select the Webex room, then send commands from a different Webex account.
 
 ## API investigation
@@ -18,7 +18,7 @@ AstroBot is a Python Webex bot for the Astronomy Club. It polls one selected Web
 | OpenWeather direct geocoding | `GET /geo/1.0/direct?q=<city>&limit=1&appid=<key>` | `appid` query parameter | Array with `name`, `lat`, `lon`, country and optional state. |
 | OpenWeather reverse geocoding | `GET /geo/1.0/reverse?lat=<lat>&lon=<lon>&limit=1&appid=<key>` | `appid` query parameter | Array with readable location fields. |
 | OpenWeather current weather | `GET /data/2.5/weather?lat=<lat>&lon=<lon>&units=metric&appid=<key>` | `appid` query parameter | `weather[0].description`, `main.temp`, `clouds.all`, `visibility`. |
-| NASA APOD extension | `GET https://api.nasa.gov/planetary/apod?api_key=<key>` | `api_key` query parameter | `title`, `date`, `explanation`, and `url`. |
+| Open-Meteo astronomy extension | `GET https://api.open-meteo.com/v1/forecast` | No API key required | `daily.sunrise`, `daily.sunset`, `daily.moonrise`, `daily.moonset`, `daily.moon_phase`. |
 
 Official documentation: [Webex Rooms](https://developer.webex.com/docs/api/v1/rooms), [Webex Messaging](https://developer.webex.com/messaging/docs/getting-started), [OpenWeather Current Weather](https://openweathermap.org/api/current), [OpenWeather Geocoding](https://openweathermap.org/api/geocoding-api), [Open Notify ISS](https://open-notify.org/Open-Notify-API/ISS-Location-Now/), and [NASA APOD](https://api.nasa.gov/).
 
@@ -43,7 +43,7 @@ The code is kept modular: API functions act as the model/data layer, `format_wea
 - The five-second polling interval respects the assignment guidance and the ISS API's recommended maximum polling rate.
 
 ## Test evidence to collect
-Record screenshots/video evidence for: valid `/weather Hatfield`; invalid `/weather madeupplace`; `/iss`; `/apod`; `/help`; invalid command; missing/invalid API key; and proof that repeating a poll does not repeat the same reply.
+Record screenshots/video evidence for: valid `/weather Hatfield`; invalid `/weather madeupplace`; `/iss`; `/sky Hatfield`; `/help`; invalid command; missing/invalid API key; and proof that repeating a poll does not repeat the same reply.
 
 ## Reflection
 The most difficult integration issue was converting one service's output into another service's input: ISS coordinates go into reverse geocoding and then weather. Modular helper functions made errors easier to isolate. If developing further, I would add automated mocked tests and switch Webex polling to webhooks for a more efficient event-driven design.
@@ -90,12 +90,12 @@ OpenWeather current weather uses `GET /data/2.5/weather?lat=<lat>&lon=<lon>&unit
 
 ### Extended feature
 
-NASA Astronomy Picture of the Day (APOD) is called through `GET https://api.nasa.gov/planetary/apod?api_key=<key>`. The `/apod` command returns its title, date, explanation and link. It is a separate function, `handle_apod`, so the bot remains modular.
+Open-Meteo is used as the astronomy extension. The `/sky city` command obtains that city's sunrise, sunset, moonrise, moonset and moon phase through its forecast endpoint. It is a separate `handle_sky` function, so the extension remains modular and useful for planning observations without another API key.
 
 ### Client server diagram
 
 ```text
-Webex user -> Webex cloud -> AstroBot Python client -> ISS / OpenWeather / NASA servers
+Webex user -> Webex cloud -> AstroBot Python client -> ISS / OpenWeather / Open-Meteo servers
                          <- formatted Webex response <- JSON HTTP responses
 ```
 
