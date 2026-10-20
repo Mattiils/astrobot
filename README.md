@@ -13,20 +13,20 @@ AstroBot is a Python Webex bot for the Astronomy Club. It polls one selected Web
 | API | Endpoint and HTTP method | Authentication | JSON used |
 |---|---|---|---|
 | Webex Rooms | `GET https://webexapis.com/v1/rooms` | `Authorization: Bearer <token>` | `items[]` contains room `id`, `title`, and `type`. |
-| Webex Messages | `GET /v1/messages?roomId=<id>&max=1`; `POST /v1/messages` | Bearer token | GET returns `items[]`; POST body has `roomId` and `text`. |
+| Webex Messages | `GET /v1/messages?roomId=<id>&max=1&mentionedPeople=me`; `POST /v1/messages` | Bearer token | GET returns `items[]`; POST body has `roomId` and `text`. |
 | ISS | `GET http://api.open-notify.org/iss-now.json` | None | `timestamp`, `iss_position.latitude`, `iss_position.longitude`. |
 | OpenWeather direct geocoding | `GET /geo/1.0/direct?q=<city>&limit=1&appid=<key>` | `appid` query parameter | Array with `name`, `lat`, `lon`, country and optional state. |
 | OpenWeather reverse geocoding | `GET /geo/1.0/reverse?lat=<lat>&lon=<lon>&limit=1&appid=<key>` | `appid` query parameter | Array with readable location fields. |
 | OpenWeather current weather | `GET /data/2.5/weather?lat=<lat>&lon=<lon>&units=metric&appid=<key>` | `appid` query parameter | `weather[0].description`, `main.temp`, `clouds.all`, `visibility`. |
 | Open-Meteo astronomy extension | `GET https://api.open-meteo.com/v1/forecast` | No API key required | `daily.sunrise`, `daily.sunset`, `daily.moonrise`, `daily.moonset`, `daily.moon_phase`. |
 
-Official documentation: [Webex Rooms](https://developer.webex.com/docs/api/v1/rooms), [Webex Messaging](https://developer.webex.com/messaging/docs/getting-started), [OpenWeather Current Weather](https://openweathermap.org/api/current), [OpenWeather Geocoding](https://openweathermap.org/api/geocoding-api), [Open Notify ISS](https://open-notify.org/Open-Notify-API/ISS-Location-Now/), and [NASA APOD](https://api.nasa.gov/).
+Official documentation: [Webex Rooms](https://developer.webex.com/docs/api/v1/rooms), [Webex Messaging](https://developer.webex.com/messaging/docs/getting-started), [OpenWeather Current Weather](https://openweathermap.org/api/current), [OpenWeather Geocoding](https://openweathermap.org/api/geocoding-api), [Open Notify ISS](https://open-notify.org/Open-Notify-API/ISS-Location-Now/), and [Open-Meteo Forecast](https://open-meteo.com/en/docs).
 
 ## Epoch to human time
 The ISS API timestamp is Unix/POSIX seconds. `datetime.fromtimestamp(timestamp, tz=timezone.utc)` converts it to a timezone-aware UTC date/time, then `strftime` formats it for the Webex message. Python recommends an aware UTC datetime rather than `utcfromtimestamp()`. [Python datetime documentation](https://docs.python.org/3/library/datetime.html)
 
 ## Web architecture
-AstroBot is a client. Webex, OpenWeather, Open Notify and NASA expose server-side REST APIs. The Python client sends HTTP requests, the server returns JSON, and the bot parses only the fields needed for a user-friendly response. API keys/tokens prove authorisation; HTTPS protects the Webex, OpenWeather and NASA requests in transit.
+AstroBot is a client. Webex, OpenWeather, Open Notify and Open-Meteo expose server-side REST APIs. The Python client sends HTTP requests, the server returns JSON, and the bot parses only the fields needed for a user-friendly response. API keys and tokens prove authorisation where required; HTTPS protects the Webex, OpenWeather and Open-Meteo requests in transit.
 
 ## RESTful API concepts
 `GET` reads resources without changing them: rooms, messages, ISS location and weather. `POST` creates a Webex message using a JSON body. Typical responses are `200 OK` for successful GET, `201 Created` for a new message, `400` for a bad request, `401` for missing/invalid credentials, `403` for insufficient permission, `404` for a missing resource, `429` for rate limiting, and `5xx` for server faults.
@@ -42,11 +42,22 @@ The code is kept modular: API functions act as the model/data layer, `format_wea
 - Commands are validated and duplicates/self-messages are ignored.
 - The five-second polling interval respects the assignment guidance and the ISS API's recommended maximum polling rate.
 
-## Test evidence to collect
-Record screenshots/video evidence for: valid `/weather Hatfield`; invalid `/weather madeupplace`; `/iss`; `/sky Hatfield`; `/help`; invalid command; missing/invalid API key; and proof that repeating a poll does not repeat the same reply.
+## Testing evidence
+
+The following live tests were completed in the Webex **Astro Club Room** on 23 October 2026. The screenshots from these tests can be shown in the demonstration video; API credentials must remain hidden.
+
+| Test | Expected behaviour | Observed result |
+|---|---|---|
+| `@AstroBot /weather London` | Geocode London, retrieve current weather and provide stargazing advice | Pass - the bot returned location, condition, temperature, cloud cover, visibility and advice. |
+| `@AstroBot /iss` | Retrieve ISS coordinates and timestamp, reverse geocode, then retrieve weather | Pass - the bot returned UTC time, coordinates and weather. When no nearby place was found it safely displayed `Unknown location`. |
+| `@AstroBot /sky Hatfield` | Retrieve astronomy data from Open-Meteo | Pass - the bot returned sunrise, sunset, moonrise, moonset and moon-phase data. |
+| Former experimental `/apod` command | Retrieve NASA APOD data | Failed with service errors and timeouts when using the shared demo key. The feature was replaced by the reliable no-key Open-Meteo `/sky` extension. |
+| Unknown command | Reject unsupported input without crashing | Pass - the bot returned `Unknown command. Use /help.` |
+
+Additional checks before submission: demonstrate `/help`, an invalid city such as `/weather madeupplace`, and that leaving the bot running does not repeat a response for the same message ID. Automated checks are in `test_astro_bot.py` and can be run with `python -m unittest -v`.
 
 ## Reflection
-The most difficult integration issue was converting one service's output into another service's input: ISS coordinates go into reverse geocoding and then weather. Modular helper functions made errors easier to isolate. If developing further, I would add automated mocked tests and switch Webex polling to webhooks for a more efficient event-driven design.
+The most difficult integration issue was converting one service's output into another service's input: ISS coordinates go into reverse geocoding and then weather. Modular helper functions and small offline tests made errors easier to isolate. If developing further, I would expand the automated tests and switch Webex polling to webhooks for a more efficient event-driven design.
 
 ## Completed template detail
 
@@ -57,7 +68,7 @@ The most difficult integration issue was converting one service's output into an
 | API Base URL | `https://webexapis.com/v1` |
 | Authentication | Bearer access token in the `Authorization` header |
 | List rooms | `GET /rooms` |
-| Get latest room message | `GET /messages?roomId=<room_id>&max=1` |
+| Get latest room message | `GET /messages?roomId=<room_id>&max=1&mentionedPeople=me` |
 | Send response | `POST /messages` with JSON `{ "roomId": "...", "text": "..." }` |
 | Required headers | `Authorization: Bearer <token>`; POST also needs `Content-Type: application/json` |
 | Example | `GET https://webexapis.com/v1/rooms` |

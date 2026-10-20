@@ -178,7 +178,7 @@ def handle_sky(argument: str, weather_key: str) -> str:
             f"Moon phase value: {value('moon_phase')}\nUse this with /weather to plan observing.")
 
 
-def process_command(text: str, weather_key: str, _nasa_key: str) -> str | None:
+def process_command(text: str, weather_key: str) -> str | None:
     command, _, argument = text.strip().partition(" ")
     command = command.lower()
     if command == "/weather":
@@ -192,7 +192,7 @@ def process_command(text: str, weather_key: str, _nasa_key: str) -> str | None:
     return "Unknown command. Use /help."
 
 
-def monitor_room(token: str, bot_email: str, room_id: str, weather_key: str, nasa_key: str) -> None:
+def monitor_room(token: str, bot_email: str, room_id: str, weather_key: str) -> None:
     processed_ids: set[str] = set()
     poll_seconds = max(5, int(os.getenv("POLL_SECONDS", "5")))
     print("Monitoring room. Press Ctrl+C to stop.")
@@ -210,7 +210,7 @@ def monitor_room(token: str, bot_email: str, room_id: str, weather_key: str, nas
                     command_start = text.find("/")
                     if command_start >= 0:
                         try:
-                            answer = process_command(text[command_start:], weather_key, nasa_key)
+                            answer = process_command(text[command_start:], weather_key)
                             if answer:
                                 send_message(token, room_id, answer)
                         except ApiError as exc:
@@ -227,9 +227,8 @@ def main() -> None:
     token = required_setting("WEBEX_ACCESS_TOKEN")
     bot_email = required_setting("WEBEX_BOT_EMAIL")
     weather_key = required_setting("OPENWEATHER_API_KEY")
-    nasa_key = os.getenv("NASA_API_KEY", "DEMO_KEY")
     room = choose_room(get_rooms(token))
-    monitor_room(token, bot_email, room["id"], weather_key, nasa_key)
+    monitor_room(token, bot_email, room["id"], weather_key)
 
 
 if __name__ == "__main__":
