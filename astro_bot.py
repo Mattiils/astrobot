@@ -126,6 +126,7 @@ def format_weather(place: str, weather: dict[str, Any]) -> str:
     visibility = weather.get("visibility", "N/A")
     visibility_text = f"{visibility / 1000:.1f} km" if isinstance(visibility, (int, float)) else "N/A"
     return (f"Weather for {place}\n"
+            f"Time: {epoch_to_utc(weather.get('dt'))}\n"
             f"Condition: {condition.title()}\n"
             f"Temperature: {main.get('temp', 'N/A')} °C\n"
             f"Cloud cover: {clouds}%\nVisibility: {visibility_text}\n"
