@@ -56,6 +56,17 @@ The following live tests were completed in the Webex **Astro Club Room** on 23 O
 
 Additional checks before submission: demonstrate `/help`, an invalid city such as `/weather madeupplace`, and that leaving the bot running does not repeat a response for the same message ID. Automated checks are in `test_astro_bot.py` and can be run with `python -m unittest -v`.
 
+## Demonstration checklist
+
+1. Show the GitHub repository and meaningful commit history.
+2. Run `python -m unittest -v` and show that all eight offline tests pass.
+3. Start `astro_bot.py`, select the Astro Club Room and keep the terminal visible.
+4. Demonstrate `@AstroBot /weather London`, `@AstroBot /iss` and `@AstroBot /sky Hatfield`.
+5. Demonstrate safe input handling with `@AstroBot /weather madeupplace` and an unknown command.
+6. Explain the API choice, JSON processing, time conversion, modular design and stargazing logic.
+7. Explain that secrets are stored in the ignored `.env` file without displaying that file or any credentials.
+8. Finish by showing the README API investigation and testing table.
+
 ## Reflection
 The most difficult integration issue was converting one service's output into another service's input: ISS coordinates go into reverse geocoding and then weather. Modular helper functions and small offline tests made errors easier to isolate. If developing further, I would expand the automated tests and switch Webex polling to webhooks for a more efficient event-driven design.
 
